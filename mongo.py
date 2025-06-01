@@ -1,215 +1,122 @@
+"""
+Module de connexion et d'opérations MongoDB pour la vectorisation
+"""
+
 from pymongo import MongoClient
 from pymongo.errors import ServerSelectionTimeoutError, OperationFailure
 from typing import List, Dict
 from tqdm import tqdm
-import os
-import json
-import sqlite3
-import pickle
+from config import config
 
-# Configuration MongoDB
-MONGO_URL = os.getenv("MONGO_URL", "mongodb://admin:password@localhost:27017")
-DATABASE_NAME = os.getenv("DATABASE_NAME", "chatbot-files")
-COLLECTION_NAME = os.getenv("COLLECTION_NAME", "docs")
-
-# Variables globales pour la connexion
+# Variables globales pour la connexion MongoDB
 client = None
 db = None
 collection = None
-use_fallback = False
 
 def init_connection():
-    """Initialise la connexion à MongoDB avec fallback sur SQLite"""
-    global client, db, collection, use_fallback
+    """Initialise la connexion à MongoDB"""
+    global client, db, collection
     
     try:
-        # Test de connexion MongoDB
-        client = MongoClient(MONGO_URL, serverSelectionTimeoutMS=5000)
+        # Connexion à MongoDB
+        client = MongoClient(config.mongo_url, serverSelectionTimeoutMS=5000)
         client.admin.command('ping')  # Test de connexion
-        db = client[DATABASE_NAME]
-        collection = db[COLLECTION_NAME]
-        print("✅ Connexion MongoDB établie")
-        use_fallback = False
+        db = client[config.database_name]
+        collection = db[config.collection_name]
+        print("Connexion MongoDB établie")
         return True
     except (ServerSelectionTimeoutError, OperationFailure) as e:
-        print(f"⚠️  MongoDB non disponible ({e}), utilisation de SQLite comme fallback")
-        use_fallback = True
-        _init_sqlite_fallback()
-        return True
+        print(f"Erreur de connexion MongoDB: {e}")
+        raise ConnectionError(f"Impossible de se connecter à MongoDB: {e}")
     except Exception as e:
-        print(f"❌ Erreur de connexion: {e}")
-        print("Utilisation de SQLite comme fallback")
-        use_fallback = True
-        _init_sqlite_fallback()
-        return True
+        print(f"Erreur de connexion: {e}")
+        raise
 
-def _init_sqlite_fallback():
-    """Initialise SQLite comme base de données de fallback"""
-    global db
-    db = sqlite3.connect('vectorisation_fallback.db')
-    cursor = db.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS docs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            filename TEXT,
-            content TEXT,
-            embedding BLOB,
-            chunk_index INTEGER,
-            total_chunks INTEGER
-        )
-    ''')
-    db.commit()
-    print("✅ Base SQLite initialisée comme fallback")
-
-# Initialisation automatique
-init_connection()
-
-def insert_document(filename: str, content: str, embedding: List[float], chunk_index: int = 0, total_chunks: int = 1):
+def insert_chunks_batch(chunks_data: List[Dict], batch_size: int = None):
     """
-    Insère un document dans MongoDB
+    Insère les chunks dans MongoDB par lots
     
     Args:
-        filename: Nom du fichier source
-        content: Contenu du chunk
-        embedding: Vecteur d'embedding
-        chunk_index: Index du chunk dans le document
-        total_chunks: Nombre total de chunks du document
+        chunks_data: Liste des chunks avec leurs métadonnées et embeddings
+        batch_size: Taille des lots (par défaut utilise config.batch_size)
     """
-    document = {
-        "filename": filename,
-        "content": content,
-        "embedding": embedding,
-        "chunk_index": chunk_index,
-        "total_chunks": total_chunks
-    }
+    if not chunks_data:
+        print("Aucun chunk à insérer")
+        return
     
-    result = collection.insert_one(document)
-    return result.inserted_id
-
-def insert_chunks_batch(chunks: List[Dict], batch_size: int = 1000) -> List[str]:
-    """
-    Insère une liste de chunks dans MongoDB en lots de taille contrôlée
+    if batch_size is None:
+        batch_size = config.batch_size
     
-    Args:
-        chunks: Liste des chunks avec embeddings
-        batch_size: Taille de chaque lot pour l'insertion (défaut: 1000)
-        
-    Returns:
-        Liste des IDs des documents insérés
-    """
-    if use_fallback:
-        return _insert_chunks_sqlite(chunks)
+    print(f"Insertion de {len(chunks_data)} chunks en lots de {batch_size}")
     
-    print(f"Insertion de {len(chunks)} chunks dans MongoDB par lots de {batch_size}...")
+    # Vérifier la connexion
+    if collection is None:
+        raise ConnectionError("Connexion MongoDB non initialisée")
     
-    all_inserted_ids = []
-    total_chunks = len(chunks)
+    total_inserted = 0
     
-    # Traitement par lots pour éviter les timeouts
-    for i in tqdm(range(0, total_chunks, batch_size), desc="Insertion dans MongoDB"):
-        batch_chunks = chunks[i:i + batch_size]
-        
-        documents = []
-        for chunk in batch_chunks:
-            document = {
-                "filename": chunk['source'],
-                "content": chunk['content'],
-                "embedding": chunk['embedding'],
-                "chunk_index": chunk.get('chunk_index', 0),
-                "total_chunks": chunk.get('total_chunks', 1)
-            }
-            documents.append(document)
+    # Insertion par lots
+    for i in tqdm(range(0, len(chunks_data), batch_size), desc="Insertion des chunks"):
+        batch = chunks_data[i:i + batch_size]
         
         try:
-            # Insertion du lot courant
-            result = collection.insert_many(documents, ordered=False)
-            batch_ids = [str(id) for id in result.inserted_ids]
-            all_inserted_ids.extend(batch_ids)
-            
-            print(f"  ✓ Lot {i//batch_size + 1}/{(total_chunks + batch_size - 1)//batch_size}: {len(batch_ids)} documents insérés")
-            
+            result = collection.insert_many(batch)
+            total_inserted += len(result.inserted_ids)
         except Exception as e:
-            print(f"  ❌ Erreur lors de l'insertion du lot {i//batch_size + 1}: {e}")
-            # Continue avec le lot suivant même en cas d'erreur
-            continue
+            print(f"Erreur lors de l'insertion du lot {i//batch_size + 1}: {e}")
+            raise
     
-    print(f"✅ {len(all_inserted_ids)} chunks insérés au total dans MongoDB")
-    return all_inserted_ids
+    print(f"{total_inserted} chunks insérés avec succès dans MongoDB")
 
-def _insert_chunks_sqlite(chunks: List[Dict]) -> List[str]:
-    """Insère les chunks dans SQLite comme fallback"""
-    print(f"Insertion de {len(chunks)} chunks dans SQLite (fallback)...")
+def count_documents() -> int:
+    """Retourne le nombre de documents dans la collection"""
+    if collection is None:
+        raise ConnectionError("Connexion MongoDB non initialisée")
     
-    cursor = db.cursor()
-    inserted_ids = []
+    return collection.count_documents({})
+
+def get_collection_stats() -> Dict:
+    """Retourne des statistiques sur la collection"""
+    if collection is None:
+        raise ConnectionError("Connexion MongoDB non initialisée")
     
-    for chunk in tqdm(chunks, desc="Insertion SQLite"):
-        cursor.execute('''
-            INSERT INTO docs (filename, content, embedding, chunk_index, total_chunks)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (
-            chunk['source'],
-            chunk['content'],
-            pickle.dumps(chunk['embedding']),  # Sérialisation de l'embedding
-            chunk.get('chunk_index', 0),
-            chunk.get('total_chunks', 1)
-        ))
-        inserted_ids.append(str(cursor.lastrowid))
+    stats = {
+        'total_documents': collection.count_documents({}),
+        'unique_files': len(collection.distinct('filename')),
+        'database_name': config.database_name,
+        'collection_name': config.collection_name
+    }
     
-    db.commit()
-    print(f"✅ {len(inserted_ids)} chunks insérés dans SQLite")
-    return inserted_ids
+    # Statistiques par type de fichier
+    file_types = {}
+    filenames = collection.distinct('filename')
+    for filename in filenames:
+        ext = filename.split('.')[-1].lower() if '.' in filename else 'unknown'
+        file_types[ext] = file_types.get(ext, 0) + 1
+    
+    stats['file_types'] = file_types
+    
+    return stats
 
 def clear_collection():
     """Vide la collection (utile pour les tests)"""
-    if use_fallback:
-        cursor = db.cursor()
-        cursor.execute('DELETE FROM docs')
-        db.commit()
-        print(f"✓ Base SQLite vidée")
-    else:
-        result = collection.delete_many({})
-        print(f"✓ {result.deleted_count} documents supprimés de la collection MongoDB")
-
-def get_collection_stats():
-    """Affiche les statistiques de la collection"""
-    if use_fallback:
-        cursor = db.cursor()
-        cursor.execute('SELECT COUNT(*) FROM docs')
-        count = cursor.fetchone()[0]
-        print(f"Base SQLite contient {count} documents")
-    else:
-        count = collection.count_documents({})
-        print(f"Collection '{COLLECTION_NAME}' contient {count} documents")
-    return count
-
-def test_connection():
-    """Teste la connexion et affiche les informations"""
-    global client, db, collection, use_fallback
+    if collection is None:
+        raise ConnectionError("Connexion MongoDB non initialisée")
     
-    if use_fallback:
-        print("❌ Utilisation du fallback SQLite - MongoDB non disponible")
-        return False
-    
-    try:
-        # Test ping
-        client.admin.command('ping')
-        
-        # Informations sur la base
-        db_list = client.list_database_names()
-        print(f"✅ Connexion MongoDB active")
-        print(f"📊 Bases de données disponibles: {db_list}")
-        
-        # Informations sur la collection
-        collections = db.list_collection_names()
-        print(f"📁 Collections dans '{DATABASE_NAME}': {collections}")
-        
-        if COLLECTION_NAME in collections:
-            count = collection.count_documents({})
-            print(f"📄 Documents dans '{COLLECTION_NAME}': {count}")
-        
-        return True
-        
-    except Exception as e:
-        print(f"❌ Erreur de connexion MongoDB: {e}")
-        return False
+    result = collection.delete_many({})
+    print(f"{result.deleted_count} documents supprimés de la collection")
+    return result.deleted_count
+
+def close_connection():
+    """Ferme la connexion MongoDB"""
+    global client
+    if client:
+        client.close()
+        print("Connexion MongoDB fermée")
+
+# Initialisation automatique de la connexion
+try:
+    init_connection()
+except Exception as e:
+    print(f"Impossible d'initialiser la connexion MongoDB: {e}")
+    raise

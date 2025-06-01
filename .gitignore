@@ -2,9 +2,8 @@
 data/
 env/
 
-# Bases de données locales
+# Bases de données locales (plus utilisées)
 *.db
-vectorisation_fallback.db
 
 # Cache Python
 __pycache__/
@@ -16,9 +15,12 @@ __pycache__/
 *.log
 logs/
 
-# Fichiers temporaires
+# Fichiers temporaires et système
 .tmp/
 temp/
+.DS_Store
+*_backup.py
+*_old.py
 
 # Configuration locale
 .env
