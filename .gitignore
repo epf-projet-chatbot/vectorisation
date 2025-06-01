@@ -1,0 +1,29 @@
+# Données et environnement
+data/
+env/
+
+# Bases de données locales
+*.db
+vectorisation_fallback.db
+
+# Cache Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs
+*.log
+logs/
+
+# Fichiers temporaires
+.tmp/
+temp/
+
+# Configuration locale
+.env
+.env.local
+
+# Fichiers système
+.DS_Store
+Thumbs.db
