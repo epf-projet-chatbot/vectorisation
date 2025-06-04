@@ -23,4 +23,4 @@ COPY . .
 RUN mkdir -p /app/data_test
 
 # Commande par défaut
-CMD ["python", "pipeline.py", "--test"]
+CMD ["python", "pipeline.py"]

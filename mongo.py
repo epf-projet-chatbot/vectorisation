@@ -107,6 +107,23 @@ def clear_collection():
     print(f"{result.deleted_count} documents supprimés de la collection")
     return result.deleted_count
 
+def test_connection() -> bool:
+    """
+    Teste la connexion à MongoDB
+    
+    Returns:
+        True si la connexion fonctionne, False sinon
+    """
+    try:
+        if client is None:
+            return False
+        
+        # Test simple de ping
+        client.admin.command('ping')
+        return True
+    except Exception:
+        return False
+
 def close_connection():
     """Ferme la connexion MongoDB"""
     global client

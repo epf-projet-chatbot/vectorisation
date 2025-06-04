@@ -86,7 +86,10 @@ def run_pipeline(chunk_size: int = 1000, overlap: int = 200, clear_db: bool = Fa
         print(f"\nETAPE 2.2: Pré-traitement des chunks")
         print("-" * 40)
         for chunk in chunks:
-            chunk['content'] = preprocess_text(chunk['content'])
+            # Stocker le contenu original
+            chunk['original_content'] = chunk['content']
+            # Créer le contenu prétraité pour les embeddings
+            chunk['preprocessed_content'] = preprocess_text(chunk['content'])
         print("Pré-traitement des chunks terminé")
         
         # Étape 3: Génération des embeddings
