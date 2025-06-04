@@ -35,7 +35,7 @@ source env/bin/activate
 # Installer les dépendances
 pip install -r requirements.txt
 
-# Démarrer MongoDB (mode test sur port 27018)
+# Démarrer MongoDB (mode test sur port 27017)
 mongod --config /usr/local/etc/mongod_test.conf --noauth
 ```
 
@@ -82,7 +82,7 @@ Le fichier `config.py` centralise tous les paramètres :
 
 ```python
 # Configuration MongoDB
-mongo_url: str = "mongodb://localhost:27018"
+mongo_url: str = "mongodb://localhost:27017"
 database_name: str = "chatbot-files"
 collection_name: str = "docs"
 
@@ -244,7 +244,7 @@ python pipeline.py --test --clear-db
 
 ```bash
 # Configuration MongoDB
-export MONGO_URL="mongodb://localhost:27018"
+export MONGO_URL="mongodb://localhost:27017"
 export DATABASE_NAME="chatbot-files"
 export COLLECTION_NAME="docs"
 
@@ -275,7 +275,7 @@ Pour utiliser les données vectorisées dans votre application :
 from pymongo import MongoClient
 
 # Connexion à MongoDB
-client = MongoClient("mongodb://localhost:27018")
+client = MongoClient("mongodb://localhost:27017")
 db = client["chatbot-files"]
 collection = db["docs"]
 

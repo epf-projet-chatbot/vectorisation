@@ -5,6 +5,14 @@ Configuration pour la pipeline de vectorisation
 import os
 from dataclasses import dataclass
 
+# Essayer de charger les variables d'environnement depuis un fichier .env
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # python-dotenv n'est pas installé, on continue sans
+    pass
+
 @dataclass
 class VectorizationConfig:
     """Configuration pour la vectorisation"""
@@ -14,9 +22,12 @@ class VectorizationConfig:
     chunk_overlap: int = 200
     
     # Configuration MongoDB
-    mongo_url: str = "mongodb://localhost:27018"
-    database_name: str = "chatbot-files"
-    collection_name: str = "docs"
+    mongo_host: str = "localhost"
+    mongo_port: int = 27017
+    mongo_username: str = ""
+    mongo_password: str = ""
+    database_name: str = "chatbot"
+    collection_name: str = "data"
     
     # Configuration des données
     data_dir: str = "./data"
@@ -42,6 +53,14 @@ class VectorizationConfig:
     def get_json_filename(self) -> str:
         """Retourne le nom du fichier JSON selon le mode"""
         return self.test_json_filename if self.test_mode else self.json_filename
+    
+    @property
+    def mongo_url(self) -> str:
+        """Construit l'URL MongoDB avec authentification si nécessaire"""
+        if self.mongo_username and self.mongo_password:
+            return f"mongodb://{self.mongo_username}:{self.mongo_password}@{self.mongo_host}:{self.mongo_port}"
+        else:
+            return f"mongodb://{self.mongo_host}:{self.mongo_port}"
 
     @classmethod
     def from_env(cls):
@@ -49,9 +68,12 @@ class VectorizationConfig:
         return cls(
             chunk_size=int(os.getenv("CHUNK_SIZE", 1000)),
             chunk_overlap=int(os.getenv("CHUNK_OVERLAP", 200)),
-            mongo_url=os.getenv("MONGO_URL", "mongodb://localhost:27018"),
-            database_name=os.getenv("DATABASE_NAME", "chatbot-files"),
-            collection_name=os.getenv("COLLECTION_NAME", "docs"),
+            mongo_host=os.getenv("MONGO_HOST", "localhost"),
+            mongo_port=int(os.getenv("MONGO_PORT", 27017)),
+            mongo_username=os.getenv("MONGO_USERNAME", ""),
+            mongo_password=os.getenv("MONGO_PASSWORD", ""),
+            database_name=os.getenv("DATABASE_NAME", "chatbot"),
+            collection_name=os.getenv("COLLECTION_NAME", "data"),
             data_dir=os.getenv("DATA_DIR", "./data"),
             markdown_subdir=os.getenv("MARKDOWN_SUBDIR", "kiwiXlegal"),
             pdf_subdir=os.getenv("PDF_SUBDIR", "root"),

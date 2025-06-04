@@ -31,6 +31,7 @@ from chunker import process_documents_chunks
 from embedder import process_chunks_embeddings
 from mongo import insert_chunks_batch, clear_collection, get_collection_stats
 from config import config
+from preprocessor import preprocess_text
 
 def run_pipeline(chunk_size: int = 1000, overlap: int = 200, clear_db: bool = False, test_mode: bool = False):
     """
@@ -80,6 +81,13 @@ def run_pipeline(chunk_size: int = 1000, overlap: int = 200, clear_db: bool = Fa
             return
         
         print(f"{len(chunks)} chunks créés avec succès")
+        
+        # Étape 2.2: Pré-traitement des chunks
+        print(f"\nETAPE 2.2: Pré-traitement des chunks")
+        print("-" * 40)
+        for chunk in chunks:
+            chunk['content'] = preprocess_text(chunk['content'])
+        print("Pré-traitement des chunks terminé")
         
         # Étape 3: Génération des embeddings
         print(f"\nETAPE 3: Génération des embeddings")
