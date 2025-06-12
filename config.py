@@ -22,9 +22,10 @@ class VectorizationConfig:
     chunk_overlap: int = 200
     
     # Configuration MongoDB
+    mongo_uri: str = ""
     mongo_host: str = "localhost"
     mongo_port: int = 27017
-    mongo_username: str = ""
+    mongo_user: str = ""
     mongo_password: str = ""
     database_name: str = "chatbot_db"
     collection_name: str = "data"
@@ -57,8 +58,13 @@ class VectorizationConfig:
     @property
     def mongo_url(self) -> str:
         """Construit l'URL MongoDB avec authentification si nécessaire"""
-        if self.mongo_username and self.mongo_password:
-            return f"mongodb://{self.mongo_username}:{self.mongo_password}@{self.mongo_host}:{self.mongo_port}"
+        # Si une URI complète est fournie, l'utiliser
+        if self.mongo_uri:
+            return self.mongo_uri
+        
+        # Sinon, construire l'URI à partir des paramètres
+        if self.mongo_user and self.mongo_password:
+            return f"mongodb://{self.mongo_user}:{self.mongo_password}@{self.mongo_host}:{self.mongo_port}"
         else:
             return f"mongodb://{self.mongo_host}:{self.mongo_port}"
 
@@ -68,11 +74,12 @@ class VectorizationConfig:
         return cls(
             chunk_size=int(os.getenv("CHUNK_SIZE", 1000)),
             chunk_overlap=int(os.getenv("CHUNK_OVERLAP", 200)),
+            mongo_uri=os.getenv("MONGO_URI", ""),
             mongo_host=os.getenv("MONGO_HOST", "localhost"),
             mongo_port=int(os.getenv("MONGO_PORT", 27017)),
-            mongo_username=os.getenv("MONGO_USERNAME", ""),
+            mongo_user=os.getenv("MONGO_USER", ""),
             mongo_password=os.getenv("MONGO_PASSWORD", ""),
-            database_name=os.getenv("DATABASE_NAME", "chatbot"),
+            database_name=os.getenv("DATABASE_NAME", "chatbot_db"),
             collection_name=os.getenv("COLLECTION_NAME", "data"),
             data_dir=os.getenv("DATA_DIR", "./data"),
             markdown_subdir=os.getenv("MARKDOWN_SUBDIR", "kiwiXlegal"),

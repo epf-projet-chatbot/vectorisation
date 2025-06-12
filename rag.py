@@ -4,10 +4,8 @@ from os import getenv
 import os
 from sklearn.neighbors import NearestNeighbors
 from embedder import get_embedding
-
-client = None
-db = os.getenv('DATABASE_NAME')
-collection = os.getenv('COLLECTION_NAME')
+from mongo import init_connection, client, db, collection
+from config import config
 
 def make_vector(user_request:str):
     """
@@ -31,37 +29,36 @@ def k_context_vectors(request_vector, k:int):
         k: Le nombre de vecteurs à récupérer.
     
     Returns:
-        Une liste des identifiants des k vecteurs les plus proches.
+        Une liste du contenu des k documents les plus proches.
     """
-    global client, db, collection
+    # S'assurer que la connexion est initialisée
+    init_connection()
     
-    if client is None:
-        try:
-            client = MongoClient(os.getenv('MONGO_URL'), serverSelectionTimeoutMS=5000)
-            client.admin.command('ping')  # Test de connexion
-            print("Connexion MongoDB établie")
-        except (ServerSelectionTimeoutError, OperationFailure) as e:
-            print(f"Erreur de connexion MongoDB: {e}")
-            raise ConnectionError(f"Impossible de se connecter à MongoDB: {e}")
-    
-    if db is None or collection is None:
-        raise ValueError("Nom de la base de données ou de la collection non défini.")
+    # Vérifier que la collection est disponible
+    if collection is None:
+        raise ConnectionError("Collection MongoDB non initialisée")
     
     # Récupérer tous les vecteurs et leurs métadonnées
-    vectors = list(client[db][collection].find())
+    vectors = list(collection.find())
+    print(f"Nombre de vecteurs dans la collection '{config.collection_name}': {len(vectors)}")
     
     if not vectors:
+        print("Aucun vecteur trouvé dans la collection.")
         return []
     
     # Extraire les vecteurs du champ embedding
     vector_data = [v['embedding'] for v in vectors]
     
     # Utiliser NearestNeighbors pour trouver les k plus proches voisins
-    nbrs = NearestNeighbors(n_neighbors=k, algorithm='auto').fit(vector_data)
+    # S'assurer que k ne dépasse pas le nombre de vecteurs disponibles
+    effective_k = min(k, len(vectors))
+    nbrs = NearestNeighbors(n_neighbors=effective_k, algorithm='auto').fit(vector_data)
     distances, indices = nbrs.kneighbors([request_vector])
     
     # Récupérer le contexte associé à ces vecteurs
     closest_vectors = [vectors[i] for i in indices[0]]
     context_texts = [v['content'] for v in closest_vectors]
+    
+    print(f"✅ {len(context_texts)} chunks de contexte récupérés")
     
     return context_texts

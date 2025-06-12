@@ -33,9 +33,10 @@ def rag_generate_response(question):
         Une réponse basée sur la question.
     """
     init_connection()
+    test_database_connection()
     
     # Récupérer le contexte pertinent
-    context = k_context_vectors(make_vector(question), k=5)
+    context = k_context_vectors(make_vector(question), k=10)
     
     # Construire le prompt avec le contexte
     context_text = "\n".join(context) if context else "Aucun contexte trouvé."
