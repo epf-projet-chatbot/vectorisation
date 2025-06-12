@@ -1,5 +1,6 @@
 # Données et environnement
 data/
+env_arm/
 env/
 
 # Bases de données locales (plus utilisées)

@@ -10,8 +10,8 @@ from config import config
 
 # Variables globales pour la connexion MongoDB
 client = None
-db = None
-collection = None
+db = "chatbot_db"
+collection = "data"
 
 def init_connection():
     """Initialise la connexion à MongoDB"""

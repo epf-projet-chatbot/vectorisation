@@ -26,7 +26,7 @@ class VectorizationConfig:
     mongo_port: int = 27017
     mongo_username: str = ""
     mongo_password: str = ""
-    database_name: str = "chatbot"
+    database_name: str = "chatbot_db"
     collection_name: str = "data"
     
     # Configuration des données

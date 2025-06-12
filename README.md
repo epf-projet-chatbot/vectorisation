@@ -83,7 +83,7 @@ Le fichier `config.py` centralise tous les paramètres :
 ```python
 # Configuration MongoDB
 mongo_url: str = "mongodb://localhost:27017"
-database_name: str = "chatbot-files"
+database_name: str = "chatbot_db"
 collection_name: str = "docs"
 
 # Paramètres de chunking
@@ -245,7 +245,7 @@ python pipeline.py --test --clear-db
 ```bash
 # Configuration MongoDB
 export MONGO_URL="mongodb://localhost:27017"
-export DATABASE_NAME="chatbot-files"
+export DATABASE_NAME="chatbot_db"
 export COLLECTION_NAME="docs"
 
 # Paramètres de chunking
@@ -276,7 +276,7 @@ from pymongo import MongoClient
 
 # Connexion à MongoDB
 client = MongoClient("mongodb://localhost:27017")
-db = client["chatbot-files"]
+db = client["chatbot_db"]
 collection = db["docs"]
 
 # Récupérer tous les documents
