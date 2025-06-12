@@ -40,15 +40,14 @@ def rag_generate_response(question):
     
     # Construire le prompt avec le contexte
     context_text = "\n".join(context) if context else "Aucun contexte trouvé."
-    prompt = f"Contexte: {context_text}\n\nQuestion: {question}\n\nRéponse:"
+    prompt = f"Tu es un assistant juridique spécialisé dans les Junior-Entreprises (JE) françaises. Tu dois répondre aux questions des utilisateurs en t’appuyant exclusivement sur les documents fournis via le système de retrieval (lois, statuts, guides CNJE, jurisprudences, etc.). Lorsque tu réponds : Ne fournis des informations que si elles sont présentes dans les documents récupérés. Si une information ne figure pas dans les documents, indique clairement que tu ne peux pas répondre avec certitude, et invite l’utilisateur à consulter un expert juridique ou la CNJE. Sois concis, rigoureux et neutre dans le ton. Si une réponse comporte plusieurs cas possibles (ex. : selon le statut associatif ou non), énumère-les clairement. Contexte: {context_text}\n\nQuestion: {question}\n\nRéponse:"
     
     client = Groq(api_key=os.environ.get("API_KEY"),)
     chat_completion = client.chat.completions.create(
         messages=[
             {
                 "role": "system",
-                "content": "Tu es un assistant juridique. Réponds précisément aux questions en te basant sur le contexte fourni."
-            },
+                "content": ""            },
             {
                 "role": "user", 
                 "content": prompt,
@@ -145,9 +144,80 @@ def test_database_connection():
 
 def run_performance_test():
     """
-    Lance le test de performance complet sur tous les échantillons.
+    Lance le test de performance complet avec évaluation manuelle des réponses.
     """
     print("\n🧪 LANCEMENT DU TEST DE PERFORMANCE COMPLET")
+    print("="*60)
+    print("💡 Vous allez évaluer manuellement chaque réponse du système RAG")
+    print("   Tapez 'o' ou 'oui' si la réponse est correcte")
+    print("   Tapez 'n' ou 'non' si la réponse est incorrecte")
+    print("   Tapez 's' pour passer une question")
+    print("="*60)
+    
+    correct_count = 0
+    total_questions = len(samples)
+    skipped_questions = 0
+    
+    for i, (question, expected_answer) in enumerate(samples, 1):
+        print(f"\n{'='*60}")
+        print(f"[{i}/{total_questions}] QUESTION: {question}")
+        print(f"RÉPONSE ATTENDUE: {expected_answer}")
+        print(f"{'='*60}")
+        
+        try:
+            # Générer la réponse du RAG
+            print("\n🤖 Génération de la réponse par le RAG...")
+            response = rag_generate_response(question)
+            
+            print(f"\n📝 RÉPONSE DU RAG:")
+            print("-" * 40)
+            print(f"{response}")
+            print("-" * 40)
+            
+            # Demander l'évaluation à l'utilisateur
+            while True:
+                user_evaluation = input(f"\n❓ Cette réponse est-elle correcte? (o/oui/n/non/s/skip): ").strip().lower()
+                
+                if user_evaluation in ['o', 'oui', 'y', 'yes']:
+                    correct_count += 1
+                    print("   ✅ Marqué comme CORRECT")
+                    break
+                elif user_evaluation in ['n', 'non', 'no']:
+                    print("   ❌ Marqué comme INCORRECT")
+                    break
+                elif user_evaluation in ['s', 'skip', 'passer']:
+                    skipped_questions += 1
+                    print("   ⏭️  Question passée")
+                    break
+                else:
+                    print("   ⚠️  Réponse invalide. Utilisez 'o/oui', 'n/non', ou 's/skip'")
+                
+        except Exception as e:
+            print(f"   ❌ ERREUR lors de la génération: {e}")
+            skip = input("   Voulez-vous passer cette question? (o/n): ").strip().lower()
+            if skip in ['o', 'oui', 'y', 'yes']:
+                skipped_questions += 1
+    
+    # Calcul des résultats
+    evaluated_questions = total_questions - skipped_questions
+    pcc = (correct_count / evaluated_questions * 100) if evaluated_questions > 0 else 0
+    
+    print(f"\n{'='*60}")
+    print(f"📊 RÉSULTATS FINAUX:")
+    print(f"   • Questions totales: {total_questions}")
+    print(f"   • Questions évaluées: {evaluated_questions}")
+    print(f"   • Questions passées: {skipped_questions}")
+    print(f"   • Réponses correctes: {correct_count}")
+    print(f"   • Pourcentage de réussite (PCC): {pcc:.1f}%")
+    print(f"{'='*60}")
+    
+    return pcc
+
+def run_automatic_performance_test():
+    """
+    Lance le test de performance automatique (sans évaluation manuelle).
+    """
+    print("\n⚡ LANCEMENT DU TEST DE PERFORMANCE AUTOMATIQUE")
     print("="*60)
     
     correct_count = 0
@@ -159,7 +229,7 @@ def run_performance_test():
         try:
             response = rag_generate_response(question)
             
-            # Vérification simplifiée de la réponse
+            # Vérification automatique simplifiée
             is_correct = expected_answer.lower() in response.lower()
             
             if is_correct:
@@ -173,9 +243,10 @@ def run_performance_test():
     
     pcc = (correct_count / total_questions) * 100
     print(f"\n{'='*60}")
-    print(f"📊 RÉSULTATS FINAUX:")
+    print(f"📊 RÉSULTATS FINAUX (AUTOMATIQUE):")
     print(f"   • Questions correctes: {correct_count}/{total_questions}")
     print(f"   • Pourcentage de réussite (PCC): {pcc:.1f}%")
+    print(f"   ⚠️  Note: Ce test utilise une vérification automatique simple")
     print(f"{'='*60}")
     
     return pcc
@@ -216,10 +287,11 @@ def show_menu():
     print("="*60)
     print("1. Tester la connexion à la base de données")
     print("2. Tester une question spécifique")
-    print("3. Lancer le test de performance complet")
-    print("4. Mode interactif (questions libres)")
-    print("5. Afficher les échantillons de test")
-    print("6. Quitter")
+    print("3. Test de performance avec évaluation manuelle")
+    print("4. Test de performance automatique (rapide)")
+    print("5. Mode interactif (questions libres)")
+    print("6. Afficher les échantillons de test")
+    print("7. Quitter")
     print("="*60)
 
 def show_samples():
@@ -241,7 +313,7 @@ def main():
     while True:
         try:
             show_menu()
-            choice = input("\n🔥 Votre choix (1-6): ").strip()
+            choice = input("\n🔥 Votre choix (1-7): ").strip()
             
             if choice == '1':
                 test_database_connection()
@@ -256,17 +328,20 @@ def main():
                 run_performance_test()
                 
             elif choice == '4':
-                interactive_mode()
+                run_automatic_performance_test()
                 
             elif choice == '5':
-                show_samples()
+                interactive_mode()
                 
             elif choice == '6':
+                show_samples()
+                
+            elif choice == '7':
                 print("\n👋 Au revoir!")
                 break
                 
             else:
-                print("\n❌ Choix invalide. Veuillez entrer un nombre entre 1 et 6.")
+                print("\n❌ Choix invalide. Veuillez entrer un nombre entre 1 et 7.")
                 
             input("\n⏸️  Appuyez sur Entrée pour continuer...")
             

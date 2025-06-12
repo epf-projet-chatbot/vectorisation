@@ -1,9 +1,11 @@
 from sentence_transformers import SentenceTransformer
 from typing import List, Dict
 from tqdm import tqdm
+from config import config
 
-# Charger le modèle une seule fois
-model = SentenceTransformer("intfloat/multilingual-e5-small")
+# Charger le modèle multilingue optimisé pour le français
+print(f"Chargement du modèle d'embedding: {config.embedding_model}")
+model = SentenceTransformer(config.embedding_model)
 
 def get_embedding(text: str) -> List[float]:
     """
