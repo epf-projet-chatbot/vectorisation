@@ -47,6 +47,7 @@ class TextPreprocessor:
             'cf', 'voir', 'notamment', 'ainsi', 'donc', 'cependant', 'toutefois',
             'néanmoins', 'par', 'pour', 'avec', 'sans', 'sous', 'sur', 'dans'
         }
+        
         self.stop_words.update(custom_stop_words)
         
         # Stemmer
@@ -108,12 +109,6 @@ class TextPreprocessor:
         
         # Suppression des numéros de téléphone
         text = self.phone_pattern.sub(' ', text)
-        
-        # Suppression des dates (optionnel, peut être conservé selon le contexte)
-        # text = self.date_pattern.sub(' ', text)
-        
-        # Suppression des références légales spécifiques si nécessaire
-        # text = self.legal_references_pattern.sub(' ', text)
         
         # Suppression des caractères de ponctuation
         text = self.punctuation_pattern.sub(' ', text)
@@ -254,33 +249,8 @@ class TextPreprocessor:
         self.stop_words.difference_update(words)
 
 
-def create_legal_preprocessor() -> TextPreprocessor:
-    """
-    Crée un préprocesseur spécialement configuré pour les textes juridiques
-    
-    Returns:
-        Instance de TextPreprocessor configurée pour le domaine juridique
-    """
-    preprocessor = TextPreprocessor(language='french')
-    
-    # Stop words spécifiques au domaine juridique
-    legal_stop_words = {
-        'considerant', 'attendu', 'statuant', 'ordonne', 'arrete', 'decide',
-        'vu', 'considérant', 'attendu', 'statuant', 'ordonne', 'arrête', 'décide',
-        'notamment', 'ainsi', 'donc', 'cependant', 'toutefois', 'néanmoins',
-        'aux', 'termes', 'selon', 'conformément', 'application', 'vertu',
-        'dispositions', 'prescriptions', 'modalités', 'conditions'
-    }
-    
-    preprocessor.add_custom_stop_words(legal_stop_words)
-    
-    return preprocessor
-
-
 # Instance par défaut
 default_preprocessor = TextPreprocessor()
-legal_preprocessor = create_legal_preprocessor()
-
 
 def preprocess_text(text: str, 
                    remove_accents: bool = True,

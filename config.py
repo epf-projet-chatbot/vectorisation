@@ -30,6 +30,11 @@ class VectorizationConfig:
     database_name: str = "chatbot_db"
     collection_name: str = "data"
     
+    # Mode test avec base de données séparée
+    test_mode: bool = False
+    test_database_name: str = "chatbot_test_db"
+    test_collection_name: str = "data"
+    
     # Configuration des données
     data_dir: str = "./data"
     markdown_subdir: str = "kiwiXlegal"
@@ -37,7 +42,6 @@ class VectorizationConfig:
     json_filename: str = "all_aos.json"
     
     # Mode test avec données réduites
-    test_mode: bool = False
     test_data_dir: str = "./data_test"
     test_json_filename: str = "all_aos_sample.json"
     
@@ -54,6 +58,14 @@ class VectorizationConfig:
     def get_json_filename(self) -> str:
         """Retourne le nom du fichier JSON selon le mode"""
         return self.test_json_filename if self.test_mode else self.json_filename
+    
+    def get_database_name(self) -> str:
+        """Retourne le nom de la base de données selon le mode"""
+        return self.test_database_name if self.test_mode else self.database_name
+    
+    def get_collection_name(self) -> str:
+        """Retourne le nom de la collection selon le mode"""
+        return self.test_collection_name if self.test_mode else self.collection_name
     
     @property
     def mongo_url(self) -> str:
@@ -72,23 +84,25 @@ class VectorizationConfig:
     def from_env(cls):
         """Crée une configuration à partir des variables d'environnement"""
         return cls(
-            chunk_size=int(os.getenv("CHUNK_SIZE", 1000)),
-            chunk_overlap=int(os.getenv("CHUNK_OVERLAP", 200)),
+            chunk_size=int(os.getenv("CHUNK_SIZE", "1000")),
+            chunk_overlap=int(os.getenv("CHUNK_OVERLAP", "200")),
             mongo_uri=os.getenv("MONGO_URI", ""),
             mongo_host=os.getenv("MONGO_HOST", "localhost"),
-            mongo_port=int(os.getenv("MONGO_PORT", 27017)),
+            mongo_port=int(os.getenv("MONGO_PORT", "27017")),
             mongo_user=os.getenv("MONGO_USER", ""),
             mongo_password=os.getenv("MONGO_PASSWORD", ""),
             database_name=os.getenv("DATABASE_NAME", "chatbot_db"),
             collection_name=os.getenv("COLLECTION_NAME", "data"),
+            test_mode=os.getenv("TEST_MODE", "false").lower() in ["true", "1", "yes"],
+            test_database_name=os.getenv("TEST_DATABASE_NAME", "chatbot_test_db"),
+            test_collection_name=os.getenv("TEST_COLLECTION_NAME", "data"),
             data_dir=os.getenv("DATA_DIR", "./data"),
             markdown_subdir=os.getenv("MARKDOWN_SUBDIR", "kiwiXlegal"),
             pdf_subdir=os.getenv("PDF_SUBDIR", "root"),
-            embedding_model=os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-small"),
-            test_mode=os.getenv("TEST_MODE", "False").lower() in ["true", "1"],
             test_data_dir=os.getenv("TEST_DATA_DIR", "./data_test"),
             test_json_filename=os.getenv("TEST_JSON_FILENAME", "all_aos_sample.json"),
-            batch_size=int(os.getenv("BATCH_SIZE", 500))
+            embedding_model=os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-small"),
+            batch_size=int(os.getenv("BATCH_SIZE", "500"))
         )
 
 # Configuration globale

@@ -10,8 +10,8 @@ from config import config
 
 # Variables globales pour la connexion MongoDB
 client = None
-db = "chatbot_db"
-collection = "data"
+db = None
+collection = None
 
 def init_connection():
     """Initialise la connexion à MongoDB"""
@@ -21,12 +21,20 @@ def init_connection():
         # Connexion à MongoDB
         client = MongoClient(config.mongo_url, serverSelectionTimeoutMS=5000)
         client.admin.command('ping')  # Test de connexion
-        db = client[config.database_name]
-        collection = db[config.collection_name]
-        print("Connexion MongoDB établie")
+        
+        # Utiliser les méthodes de configuration pour obtenir les bons noms
+        database_name = config.get_database_name()
+        collection_name = config.get_collection_name()
+        
+        db = client[database_name]
+        collection = db[collection_name]
+        
+        mode_info = "MODE TEST" if config.test_mode else "MODE PRODUCTION"
+        print(f"✅ Connexion MongoDB établie ({mode_info})")
+        print(f"📊 Base: {database_name}, Collection: {collection_name}")
         return True
     except (ServerSelectionTimeoutError, OperationFailure) as e:
-        print(f"Erreur de connexion MongoDB: {e}")
+        print(f"❌ Erreur de connexion MongoDB: {e}")
         raise ConnectionError(f"Impossible de se connecter à MongoDB: {e}")
     except Exception as e:
         print(f"Erreur de connexion: {e}")
@@ -83,8 +91,9 @@ def get_collection_stats() -> Dict:
     stats = {
         'total_documents': collection.count_documents({}),
         'unique_files': len(collection.distinct('filename')),
-        'database_name': config.database_name,
-        'collection_name': config.collection_name
+        'database_name': config.get_database_name(),
+        'collection_name': config.get_collection_name(),
+        'test_mode': config.test_mode
     }
     
     # Statistiques par type de fichier

@@ -24,7 +24,16 @@ MODES D'UTILISATION :
 
 import os
 import argparse
+import sys
 from typing import Optional
+
+# Vérifier l'argument --test au démarrage pour configurer l'environnement
+if "--test" in sys.argv:
+    os.environ["TEST_MODE"] = "true"
+    print("🧪 Mode TEST activé via argument --test")
+elif "--prod" in sys.argv or "--production" in sys.argv:
+    os.environ["TEST_MODE"] = "false"
+    print("🏭 Mode PRODUCTION activé via argument --prod/--production")
 
 from loader import load_all_documents
 from chunker import process_documents_chunks
@@ -133,14 +142,23 @@ def main():
                        help="Afficher uniquement les statistiques de la DB")
     parser.add_argument("--test", action="store_true",
                        help="Utiliser les données de test (mode test)")
+    parser.add_argument("--prod", "--production", action="store_true",
+                       help="Forcer le mode production (explicite)")
     
     args = parser.parse_args()
     
+    # Déterminer le mode à utiliser
+    test_mode = args.test
+    if args.prod:
+        test_mode = False
+    
     if args.stats_only:
-        print("Statistiques de la base de données:")
+        from mongo import get_collection_stats
+        print("📊 Statistiques de la base de données:")
         stats = get_collection_stats()
         print(f"Total documents: {stats['total_documents']}")
         print(f"Fichiers uniques: {stats['unique_files']}")
+        print(f"Mode: {'TEST' if stats.get('test_mode', False) else 'PRODUCTION'}")
         for ext, count in stats.get('file_types', {}).items():
             print(f"  .{ext}: {count} fichier(s)")
         return
@@ -149,7 +167,7 @@ def main():
         chunk_size=args.chunk_size,
         overlap=args.overlap,
         clear_db=args.clear_db,
-        test_mode=args.test
+        test_mode=test_mode
     )
 
 if __name__ == "__main__":

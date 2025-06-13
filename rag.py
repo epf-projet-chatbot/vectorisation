@@ -40,10 +40,16 @@ def k_context_vectors(request_vector, k:int):
     
     # Récupérer tous les vecteurs et leurs métadonnées
     vectors = list(collection.find())
-    print(f"Nombre de vecteurs dans la collection '{config.collection_name}': {len(vectors)}")
+    
+    # Afficher des informations de debug avec les bons noms de base/collection
+    database_name = config.get_database_name()
+    collection_name = config.get_collection_name()
+    mode_info = "TEST" if config.test_mode else "PROD"
+    
+    print(f"📊 [{mode_info}] {len(vectors)} vecteurs dans '{database_name}.{collection_name}'")
     
     if not vectors:
-        print("Aucun vecteur trouvé dans la collection.")
+        print("⚠️  Aucun vecteur trouvé dans la collection.")
         return []
     
     # Extraire les vecteurs du champ embedding

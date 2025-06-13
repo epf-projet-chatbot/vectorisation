@@ -1,24 +1,33 @@
 """ Calcul du PCC pour évaluer la performance du RAG sur une BDD de test """
 import os
+import sys
 from groq import Groq
 from rag import k_context_vectors, make_vector
 from mongo import init_connection
 
+# Vérifier l'argument --test au démarrage
+if "--test" in sys.argv:
+    os.environ["TEST_MODE"] = "true"
+    print("🧪 Mode TEST activé via argument --test")
+elif "--prod" in sys.argv or "--production" in sys.argv:
+    os.environ["TEST_MODE"] = "false"
+    print("🏭 Mode PRODUCTION activé via argument --prod/--production")
+
 samples = [
     ("Peut-on avoir un JEH à 70€ ?", "non"),
+    ("Puis-je faire un avenant par mail ?", "oui"),
+    ("Quel est le smic actuel ?", "11,88 €"),
     ("Peut-on être appelés consultants ?", "non"),
+    ("Est-il possible de continuer un bon de commande après la fin de validité de la convention cadre ?", "non"),
     ("L'intervenant peut-il communiquer directement avec le client ?", "non"),
+    ("A-t-on droit aux apporteurs d'affaires ?", "non"),
     ("Quelle est la durée de la garantie pour un PDF ?", "2 semaines"),
+    ("Peut-on présenter directement au client une CE ?", "oui"),
     ("Quelle est la durée de la garantie pour un document qui n'est pas un PDF ?", "3 mois"),
     ("Peut-on avoir une cotisation sous forme de droit d'entrée ?", "oui"),
     ("Peut-on utiliser une seul JEH pour payer 2 intervenants ?", "non"),
-    ("Puis-je faire un avenant par mail ?", "oui"),
     ("L'intervenant doit-il être étudiant jusqu'à la fin de l'étude ?", "oui"),
     ("Combien faut-il de personnes pour créer une association de la loi 1901 au minimum ?", "2"),
-    ("A-t-on droit aux apporteurs d'affaires ?", "non"),
-    ("Peut-on présenter directement au client une CE ?", "oui"),
-    ("Quel est le smic actuel ?", "11,88 €"),
-    ("Est-il possible de continuer un bon de commande après la fin de validité de la convention cadre ?", "non"),
     ("Peut-on faire un avenant au bon de commande ?", "non"),
 ]
 
@@ -36,7 +45,7 @@ def rag_generate_response(question):
     test_database_connection()
     
     # Récupérer le contexte pertinent
-    context = k_context_vectors(make_vector(question), k=10)
+    context = k_context_vectors(make_vector(question), k=50)
     
     # Construire le prompt avec le contexte
     context_text = "\n".join(context) if context else "Aucun contexte trouvé."
@@ -282,8 +291,20 @@ def show_menu():
     """
     Affiche le menu principal de l'interface.
     """
+    from config import config
+    mode_info = "🧪 TEST" if config.test_mode else "🏭 PRODUCTION"
+    db_name = config.get_database_name()
+    
+    # Vérifier si le mode a été défini par argument
+    mode_source = ""
+    if "--test" in sys.argv:
+        mode_source = " (via --test)"
+    elif "--prod" in sys.argv or "--production" in sys.argv:
+        mode_source = " (via --prod)"
+    
     print("\n" + "="*60)
     print("🤖 INTERFACE DE TEST RAG - CHATBOT JURIDIQUE")
+    print(f"📊 Mode actuel: {mode_info}{mode_source} (Base: {db_name})")
     print("="*60)
     print("1. Tester la connexion à la base de données")
     print("2. Tester une question spécifique")
@@ -291,7 +312,8 @@ def show_menu():
     print("4. Test de performance automatique (rapide)")
     print("5. Mode interactif (questions libres)")
     print("6. Afficher les échantillons de test")
-    print("7. Quitter")
+    print("7. Basculer entre mode TEST/PRODUCTION")
+    print("8. Quitter")
     print("="*60)
 
 def show_samples():
@@ -306,6 +328,60 @@ def show_samples():
         print(f"     R: {answer}")
         print("-" * 50)
 
+def toggle_test_mode():
+    """
+    Bascule entre le mode test et le mode production
+    """
+    from config import config
+    import os
+    
+    current_mode = "TEST" if config.test_mode else "PRODUCTION"
+    new_mode = "PRODUCTION" if config.test_mode else "TEST"
+    
+    print(f"\n🔄 BASCULEMENT DE MODE")
+    print("=" * 40)
+    print(f"Mode actuel: {current_mode}")
+    print(f"Nouveau mode: {new_mode}")
+    
+    if config.test_mode:
+        print(f"📊 Base actuelle: {config.get_database_name()}")
+        print(f"📊 Nouvelle base: {config.database_name}")
+    else:
+        print(f"📊 Base actuelle: {config.get_database_name()}")
+        print(f"📊 Nouvelle base: {config.test_database_name}")
+    
+    confirm = input(f"\n❓ Voulez-vous passer en mode {new_mode}? (o/n): ").strip().lower()
+    
+    if confirm in ['o', 'oui', 'y', 'yes']:
+        # Modifier la variable d'environnement
+        new_test_mode = "false" if config.test_mode else "true"
+        
+        # Lire le fichier .env
+        env_path = '.env'
+        if os.path.exists(env_path):
+            with open(env_path, 'r') as f:
+                lines = f.readlines()
+            
+            # Modifier la ligne TEST_MODE
+            for i, line in enumerate(lines):
+                if line.startswith('TEST_MODE='):
+                    lines[i] = f'TEST_MODE={new_test_mode}\n'
+                    break
+            else:
+                # Ajouter la ligne si elle n'existe pas
+                lines.append(f'TEST_MODE={new_test_mode}\n')
+            
+            # Écrire le fichier modifié
+            with open(env_path, 'w') as f:
+                f.writelines(lines)
+            
+            print(f"✅ Mode {new_mode} activé!")
+            print("⚠️  Redémarrez le programme pour que les changements prennent effet")
+        else:
+            print("❌ Fichier .env non trouvé")
+    else:
+        print("❌ Changement annulé")
+
 def main():
     """
     Fonction principale de l'interface.
@@ -313,7 +389,7 @@ def main():
     while True:
         try:
             show_menu()
-            choice = input("\n🔥 Votre choix (1-7): ").strip()
+            choice = input("\n🔥 Votre choix (1-8): ").strip()
             
             if choice == '1':
                 test_database_connection()
@@ -337,11 +413,14 @@ def main():
                 show_samples()
                 
             elif choice == '7':
+                toggle_test_mode()
+                
+            elif choice == '8':
                 print("\n👋 Au revoir!")
                 break
                 
             else:
-                print("\n❌ Choix invalide. Veuillez entrer un nombre entre 1 et 7.")
+                print("\n❌ Choix invalide. Veuillez entrer un nombre entre 1 et 8.")
                 
             input("\n⏸️  Appuyez sur Entrée pour continuer...")
             
