@@ -4,6 +4,7 @@ import sys
 from groq import Groq
 from rag import k_context_vectors, make_vector
 from mongo import init_connection
+from google import genai
 
 # Vérifier l'argument --test au démarrage
 if "--test" in sys.argv:
@@ -14,10 +15,10 @@ elif "--prod" in sys.argv or "--production" in sys.argv:
     print("🏭 Mode PRODUCTION activé via argument --prod/--production")
 
 samples = [
-    ("Peut-on avoir un JEH à 70€ ?", "non"),
+    ("Peut-on avoir un JEH à 70€ ?", "La fourchette du JEH est réactualisée. Fourchette minimale : 80€ HT"),
     ("Puis-je faire un avenant par mail ?", "oui"),
-    ("Quel est le smic actuel ?", "11,88 €"),
-    ("Peut-on être appelés consultants ?", "non"),
+    ("Quel est le smic actuel ?", "Changement du SMIC horaire Au 1er janvier 2023, le Smic horaire brut passe à 11,27€."),
+    ("Quelle est la base URSSAF de 2023 ?", "La base Urssaf devient 45,08€."),
     ("Est-il possible de continuer un bon de commande après la fin de validité de la convention cadre ?", "non"),
     ("L'intervenant peut-il communiquer directement avec le client ?", "non"),
     ("A-t-on droit aux apporteurs d'affaires ?", "non"),
@@ -45,27 +46,30 @@ def rag_generate_response(question):
     test_database_connection()
     
     # Récupérer le contexte pertinent
-    context = k_context_vectors(make_vector(question), k=50)
+    context = k_context_vectors(make_vector(question), k=100)
     
-    # Construire le prompt avec le contexte
-    context_text = "\n".join(context) if context else "Aucun contexte trouvé."
+    # Construire le prompt avec le contexte en gérant les types mixtes
+    if context:
+        formatted_context = []
+        for item in context:
+            if isinstance(item, list):
+                # Si l'élément est une liste, joindre ses éléments
+                formatted_context.append(" ".join(str(x) for x in item))
+            elif isinstance(item, str):
+                # Si c'est déjà une chaîne, l'utiliser directement
+                formatted_context.append(item)
+            else:
+                # Pour tout autre type, le convertir en chaîne
+                formatted_context.append(str(item))
+        context_text = "\n".join(formatted_context)
+    else:
+        context_text = "Aucun contexte trouvé."
     prompt = f"Tu es un assistant juridique spécialisé dans les Junior-Entreprises (JE) françaises. Tu dois répondre aux questions des utilisateurs en t’appuyant exclusivement sur les documents fournis via le système de retrieval (lois, statuts, guides CNJE, jurisprudences, etc.). Lorsque tu réponds : Ne fournis des informations que si elles sont présentes dans les documents récupérés. Si une information ne figure pas dans les documents, indique clairement que tu ne peux pas répondre avec certitude, et invite l’utilisateur à consulter un expert juridique ou la CNJE. Sois concis, rigoureux et neutre dans le ton. Si une réponse comporte plusieurs cas possibles (ex. : selon le statut associatif ou non), énumère-les clairement. Contexte: {context_text}\n\nQuestion: {question}\n\nRéponse:"
-    
-    client = Groq(api_key=os.environ.get("API_KEY"),)
-    chat_completion = client.chat.completions.create(
-        messages=[
-            {
-                "role": "system",
-                "content": ""            },
-            {
-                "role": "user", 
-                "content": prompt,
-            }
-        ],
-        model="llama-3.3-70b-versatile",
-    )
-    reponse = chat_completion.choices[0].message.content
-    return reponse
+
+    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+    response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
+    return response.text
 
 def calculate_pcc(samples):
     """

@@ -46,10 +46,10 @@ def k_context_vectors(request_vector, k:int):
     collection_name = config.get_collection_name()
     mode_info = "TEST" if config.test_mode else "PROD"
     
-    print(f"📊 [{mode_info}] {len(vectors)} vecteurs dans '{database_name}.{collection_name}'")
+    print(f"[{mode_info}] {len(vectors)} vecteurs dans '{database_name}.{collection_name}'")
     
     if not vectors:
-        print("⚠️  Aucun vecteur trouvé dans la collection.")
+        print("Aucun vecteur trouvé dans la collection.")
         return []
     
     # Extraire les vecteurs du champ embedding
@@ -63,8 +63,20 @@ def k_context_vectors(request_vector, k:int):
     
     # Récupérer le contexte associé à ces vecteurs
     closest_vectors = [vectors[i] for i in indices[0]]
-    context_texts = [v['content'] for v in closest_vectors]
+    context_texts = []
     
-    print(f"✅ {len(context_texts)} chunks de contexte récupérés")
+    for v in closest_vectors:
+        content = v.get('content', '')
+        if isinstance(content, list):
+            # Si le contenu est une liste, joindre ses éléments
+            context_texts.append(" ".join(str(item) for item in content))
+        elif isinstance(content, str):
+            # Si c'est déjà une chaîne, l'utiliser directement
+            context_texts.append(content)
+        else:
+            # Pour tout autre type, le convertir en chaîne
+            context_texts.append(str(content))
+    
+    print(f"{len(context_texts)} chunks de contexte récupérés")
     
     return context_texts

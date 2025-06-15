@@ -42,7 +42,7 @@ class VectorizationConfig:
     json_filename: str = "all_aos.json"
     
     # Mode test avec données réduites
-    test_data_dir: str = "./data_test"
+    test_data_dir: str = "./data_clean/cleaned_output"
     test_json_filename: str = "all_aos_sample.json"
     
     # Configuration du modèle d'embedding

@@ -42,7 +42,7 @@ class TextPreprocessor:
         
         # Ajouter des stop words personnalisés pour le domaine juridique
         custom_stop_words = {
-            'article', 'alinéa', 'paragraphe', 'section', 'chapitre', 'titre',
+            'article', '\n', 'alinéa', 'paragraphe', 'section', 'chapitre', 'titre',
             'code', 'loi', 'décret', 'arrêté', 'ordonnance', 'règlement',
             'cf', 'voir', 'notamment', 'ainsi', 'donc', 'cependant', 'toutefois',
             'néanmoins', 'par', 'pour', 'avec', 'sans', 'sous', 'sur', 'dans'

@@ -46,12 +46,12 @@ COLLECTION_NAME=data                  # Collection de production
 
 # Mode test
 TEST_MODE=false                       # true pour activer le mode test
-TEST_DATABASE_NAME=chatbot_test_db    # Base de test
+TEST_DATABASE_NAME=chatbot_test_db   # Base de test
 TEST_COLLECTION_NAME=data             # Collection de test
 
 # Données
 DATA_DIR=./data                       # Données de production
-TEST_DATA_DIR=./data_test            # Données de test
+TEST_DATA_DIR=./data_clean/cleaned_output            # Données de test
 TEST_JSON_FILENAME=all_aos_sample.json
 ```
 

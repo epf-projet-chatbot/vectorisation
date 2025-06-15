@@ -2,6 +2,9 @@
 data/
 env_arm/
 env/
+data_clean/
+kiwiXLegal/
+new_env/
 
 # Bases de données locales (plus utilisées)
 *.db
