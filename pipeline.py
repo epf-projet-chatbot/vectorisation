@@ -132,10 +132,12 @@ def run_pipeline(chunk_size: int = 1000, overlap: int = 200, clear_db: bool = Fa
 def main():
     """Point d'entrée principal avec arguments en ligne de commande"""
     parser = argparse.ArgumentParser(description="Pipeline de vectorisation de documents")
-    parser.add_argument("--chunk-size", type=int, default=1000, 
-                       help="Taille maximale des chunks en caractères (défaut: 1000)")
-    parser.add_argument("--overlap", type=int, default=200,
-                       help="Chevauchement entre chunks en caractères (défaut: 200)")
+    
+    # Utiliser les valeurs par défaut de la configuration
+    parser.add_argument("--chunk-size", type=int, default=config.chunk_size, 
+                       help=f"Taille maximale des chunks en caractères (défaut: {config.chunk_size})")
+    parser.add_argument("--overlap", type=int, default=config.chunk_overlap,
+                       help=f"Chevauchement entre chunks en caractères (défaut: {config.chunk_overlap})")
     parser.add_argument("--clear-db", action="store_true",
                        help="Vider la base de données avant l'insertion")
     parser.add_argument("--stats-only", action="store_true",

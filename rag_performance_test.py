@@ -2,7 +2,7 @@
 import os
 import sys
 from groq import Groq
-from rag import k_context_vectors, make_vector
+from rag import k_context_vectors, make_vector, k_context_vectors_smart
 from mongo import init_connection
 
 # Vérifier l'argument --test au démarrage
@@ -45,7 +45,7 @@ def rag_generate_response(question):
     test_database_connection()
     
     # Récupérer le contexte pertinent
-    context = k_context_vectors(make_vector(question), k=50)
+    context = k_context_vectors(make_vector(question), k=8)
     
     # Construire le prompt avec le contexte
     context_text = "\n".join(context) if context else "Aucun contexte trouvé."
@@ -62,10 +62,95 @@ def rag_generate_response(question):
                 "content": prompt,
             }
         ],
-        model="llama-3.3-70b-versatile",
+        model="llama-3.3-70b-versatile",  # Modèles disponibles:
+        # - "llama-3.3-70b-versatile"     (ACTUEL - Recommandé)
+        # - "llama-3.1-70b-versatile"     (Plus ancien mais stable)
+        # - "llama-3.1-8b-instant"        (Plus rapide, moins précis)
+        # - "mixtral-8x7b-32768"          (Alternative Mixtral)
+        # - "gemma2-9b-it"                (Modèle Google Gemma)
     )
     reponse = chat_completion.choices[0].message.content
     return reponse
+
+def rag_generate_response_smart(question):
+    """
+    Version améliorée avec utilisation des métadonnées et prompt optimisé
+    """
+    init_connection()
+    test_database_connection()
+    
+    # Détecter le type de question AVANT de l'utiliser
+    is_quantitative = any(word in question.lower() for word in [
+        "combien", "nombre", "quel est le", "quelle est la", "montant", "prix", "coût", 
+        "durée", "pourcentage", "%", "€", "euros", "jours", "mois", "années"
+    ])
+    
+    # Utiliser la version smart avec adaptation selon le type de question
+    if is_quantitative:
+        # Pour les questions chiffrées, privilégier les métadonnées
+        context = k_context_vectors_smart(make_vector(question), k=6, prioritize_metadata=True)
+    else:
+        # Pour les questions qualitatives, plus de contexte et moins de restrictions
+        context = k_context_vectors(make_vector(question), k=8)
+    
+    # Prompt adaptatif selon le type de question
+    context_text = "\n\n---CHUNK---\n\n".join(context) if context else "Aucun contexte trouvé."
+    
+    if is_quantitative:
+        # Prompt strict pour les questions quantitatives avec gestion d'ambiguïté
+        prompt = f"""Tu es un assistant juridique expert en Junior-Entreprises françaises.
+
+MISSION: Répondre avec une précision maximale aux questions CHIFFRÉES.
+
+RÈGLES STRICTES:
+1. Cherche les associations explicites avec ":" 
+2. Si tu vois plusieurs chiffres dans le contexte, analyse leur CONTEXTE pour déterminer lequel correspond à la question
+3. Pour "nombre de litiges" cherche un petit nombre (< 100), pour "préjudice/montant" cherche un nombre avec € ou plus grand
+4. Si l'info chiffrée est ambiguë ou contradictoire, explique l'ambiguïté au lieu de deviner
+5. Cite EXACTEMENT les chiffres trouvés avec leur contexte
+
+ANALYSE DU CONTEXTE:
+{context_text}
+
+QUESTION: {question}
+
+RÉPONSE CHIFFRÉE PRÉCISE:"""
+    else:
+        # Prompt flexible pour les questions qualitatives
+        prompt = f"""Tu es un assistant juridique expert en Junior-Entreprises françaises.
+
+MISSION: Répondre de manière complète et utile aux questions sur les Junior-Entreprises.
+
+INSTRUCTIONS:
+1. Utilise les informations du contexte fourni
+2. Si le contexte est incomplet, utilise tes connaissances générales sur les Junior-Entreprises
+3. Donne des conseils pratiques et utiles
+4. Sois précis quand tu as des informations exactes
+5. Reste dans le domaine des Junior-Entreprises françaises
+
+CONTEXTE DISPONIBLE:
+{context_text}
+
+QUESTION: {question}
+
+RÉPONSE COMPLÈTE ET UTILE:"""
+
+    client = Groq(api_key=os.environ.get("API_KEY"),)
+    chat_completion = client.chat.completions.create(
+        messages=[
+            {
+                "role": "system",
+                "content": "Tu es un assistant qui répond avec une précision factuelle absolue."
+            },
+            {
+                "role": "user", 
+                "content": prompt,
+            }
+        ],
+        model="llama-3.3-70b-versatile",
+        temperature=0.1,  # Réduire la créativité pour plus de précision
+    )
+    return chat_completion.choices[0].message.content
 
 def calculate_pcc(samples):
     """
@@ -120,9 +205,14 @@ def test_individual_question(question):
         # Étape 3: Génération de la réponse
         print("\n4. Génération de la réponse...")
         response = rag_generate_response(question)
-        print(f"\n✅ RÉPONSE: {response}")
+        print(f"\n✅ RÉPONSE (Version classique): {response}")
         
-        return response
+        # Test également la version améliorée
+        print("\n5. Test de la version améliorée...")
+        response_smart = rag_generate_response_smart(question)
+        print(f"\n🚀 RÉPONSE (Version améliorée): {response_smart}")
+        
+        return response_smart  # Retourner la version améliorée
         
     except Exception as e:
         print(f"\n❌ ERREUR: {e}")

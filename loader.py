@@ -1,5 +1,5 @@
 import os
-import fitz
+import pymupdf as fitz
 import markdown
 import json
 from config import config

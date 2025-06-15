@@ -35,6 +35,9 @@ source env/bin/activate
 # Installer les dépendances
 pip install -r requirements.txt
 
+# Configurer NLTK (nécessaire pour le chunker avancé)
+python setup_nltk.py
+
 # Démarrer MongoDB (mode test sur port 27017)
 mongod --config /usr/local/etc/mongod_test.conf --noauth
 ```
